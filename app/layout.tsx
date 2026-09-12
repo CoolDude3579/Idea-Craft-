@@ -35,6 +35,16 @@ export const metadata: Metadata = {
     "Federated open-licence search. One query, many open sources, outbound links only.",
 };
 
+/** Two letters for the account chip, as in the reference design. */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export async function RootLayout({ children }: { children: ReactNode }) {
   // Layouts render on every page including the auth pages, so this must
   // tolerate there being nobody signed in.
@@ -49,51 +59,56 @@ export async function RootLayout({ children }: { children: ReactNode }) {
       data-theme={theme === "auto" ? undefined : theme}
     >
       <body>
+        {/* App bar on every screen, sticky: the reference design keeps the
+            brand, the live query and the account controls reachable from any
+            page, and one bar everywhere beats two that differ by route. */}
+        <header className="topbar">
+          <Link href="/" className="brand">
+            <span className="brandmark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
+                <path
+                  d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M10 20h4"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            Idea <span className="brandword">Craft</span>
+          </Link>
+
+          <div className="topbarright">
+            <ThemeToggle current={theme} />
+            {user ? (
+              <>
+                <span className="avatar" title={user.name} aria-hidden="true">
+                  {initials(user.name)}
+                </span>
+                <form action={signOutAction}>
+                  <button type="submit">Sign out</button>
+                </form>
+              </>
+            ) : null}
+          </div>
+        </header>
+
         <div className="shell">
-          <header className="masthead">
-            <Link href="/" className="brand">
-              <span className="brandmark" aria-hidden="true">
-                {/* The one decorative use of the accent, and the only icon. */}
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
-                  <path
-                    d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3Z"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M10 20h4"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              Idea <span className="brandword">Craft</span>
-            </Link>
-            <div className="whoami">
-              {user ? (
-                <>
-                  <span className="tagline">{user.name}</span>
-                  <ThemeToggle current={theme} />
-                  <form action={signOutAction}>
-                    <button type="submit">Sign out</button>
-                  </form>
-                </>
-              ) : (
-                <>
-                  <p className="tagline">
-                    Open-licence sources, deep-linked. We never host content.
-                  </p>
-                  <ThemeToggle current={theme} />
-                </>
-              )}
-            </div>
-          </header>
           {children}
-          <footer className="footer">
-            Results link out to the providers. Licences are reported as the
-            provider states them; verify before reuse.
+          <footer className="sitefoot">
+            <p>
+              <span className="mark">Idea Craft</span> · Open-licence resource
+              discovery
+            </p>
+            <p>
+              Results link out to the providers. Licences are reported as the
+              provider states them; verify before reuse.
+            </p>
           </footer>
         </div>
       </body>
