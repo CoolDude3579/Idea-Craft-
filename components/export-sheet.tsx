@@ -188,8 +188,8 @@ export function ExportSheet({
       {/* The sheet embeds provider thumbnails, so a blanket "nothing is
           reproduced here" would be false on any export with images. */}
       <p className="sheetfoot">
-        Compiled by Idea Craft. Every entry is a deep link to its provider
-        and nothing is stored by Idea Craft; the plates above are the
+        Compiled by IdeaCraft. Every entry is a deep link to its provider
+        and nothing is stored by IdeaCraft; the plates above are the
         providers&rsquo; own thumbnails, reproduced here under the licences
         stated beside them. Licences are reported as the provider states them —
         verify before reuse, and check the terms before redistributing this

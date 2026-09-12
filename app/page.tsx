@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { createSuperIdeaAction } from "@/app/actions";
 import { AngleIcon } from "@/components/angle-icon";
 import { SearchForm } from "@/components/search-form";
 import { CATEGORIES } from "@/lib/core/categories";
@@ -56,7 +55,7 @@ export async function Home({
           <span>Open-licence sources out.</span>
         </h1>
         <p className="sub">
-          Describe what you are trying to make. Idea Craft finds the research,
+          Describe what you are trying to make. IdeaCraft finds the research,
           visuals and language behind it — with reuse rights attached.
         </p>
 
@@ -82,7 +81,7 @@ export async function Home({
         </p>
 
         <div className="angles">
-          {CATEGORIES.map((category) => {
+          {CATEGORIES.filter((category) => !category.deferred).map((category) => {
             const providers = providersFor(category.id);
             const body = (
               <>
@@ -114,12 +113,7 @@ export async function Home({
               </>
             );
 
-            // A deferred angle is a card, not a link: nothing to search yet.
-            return category.deferred ? (
-              <div className="angle locked" key={category.id}>
-                {body}
-              </div>
-            ) : (
+            return (
               <Link
                 className="angle"
                 key={category.id}
@@ -129,6 +123,36 @@ export async function Home({
               </Link>
             );
           })}
+
+          {/* Fourth slot: super ideas, where the deferred Policy card used to
+              sit. Policy is untouched — still a category, still reachable at
+              /c/policy and from an idea board's angle chips — it simply no
+              longer takes a place on the home grid that nothing can search. */}
+          <Link className="angle" href="/super">
+            <span className="angleicon">
+              <AngleIcon categoryId="super" />
+            </span>
+            <h3>Super ideas</h3>
+            <p>
+              A project too big for one idea&rsquo;s angles: group up to three
+              ideas and export them as one pack.
+            </p>
+            <div>
+              <span className="fieldlabel">What it does</span>
+              <p className="sub" style={{ margin: 0, fontSize: 12.5 }}>
+                Group ideas · Share as one · Export a single credits pack
+              </p>
+            </div>
+            <div>
+              <span className="fieldlabel">Holds</span>
+              <p className="providers">
+                {supers.length > 0
+                  ? `${supers.length} super ${supers.length === 1 ? "idea" : "ideas"} so far`
+                  : "Up to three ideas each"}
+              </p>
+            </div>
+            <span className="explore">Open super ideas →</span>
+          </Link>
         </div>
       </section>
 
@@ -160,37 +184,6 @@ export async function Home({
         </section>
       ) : null}
 
-      <section className="band" style={{ textAlign: "left" }}>
-        <div className="rowhead">
-          <h2 style={{ fontFamily: "inherit", fontSize: 14 }}>Super ideas</h2>
-          <span className="tagline">up to three ideas, exported as one pack</span>
-        </div>
-
-        {supers.length > 0 ? (
-          <div className="boards">
-            {supers.map((superIdea) => (
-              <Link className="board" key={superIdea.id} href={`/super/${superIdea.id}`}>
-                <span className="countpill">super idea</span>
-                <h3>{superIdea.title}</h3>
-                <div className="boardfoot">
-                  <span>{superIdea.ownerId === user.id ? "yours" : "shared with you"}</span>
-                  <span className="go">Open →</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : null}
-
-        <form action={createSuperIdeaAction} className="draftbox">
-          <input
-            type="text"
-            name="title"
-            placeholder="Name a super idea — e.g. campus health campaign"
-            required
-          />
-          <button type="submit">Create super idea</button>
-        </form>
-      </section>
     </main>
   );
 }

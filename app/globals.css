@@ -133,6 +133,12 @@ a {
   gap: 9px;
 }
 
+/* One flex item, so "Idea" and "Craft" sit flush: the brand is IdeaCraft, and
+   a flex gap between the two words is what used to split it. */
+.brandtext {
+  display: inline-block;
+}
+
 .brandmark {
   display: inline-flex;
   align-items: center;

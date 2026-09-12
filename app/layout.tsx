@@ -30,7 +30,7 @@ const display = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Idea Craft",
+  title: "IdeaCraft",
   description:
     "Federated open-licence search. One query, many open sources, outbound links only.",
 };
@@ -80,7 +80,9 @@ export async function RootLayout({ children }: { children: ReactNode }) {
                 />
               </svg>
             </span>
-            Idea <span className="brandword">Craft</span>
+            <span className="brandtext">
+              Idea<span className="brandword">Craft</span>
+            </span>
           </Link>
 
           <div className="topbarright">
@@ -102,7 +104,7 @@ export async function RootLayout({ children }: { children: ReactNode }) {
           {children}
           <footer className="sitefoot">
             <p>
-              <span className="mark">Idea Craft</span> · Open-licence resource
+              <span className="mark">IdeaCraft</span> · Open-licence resource
               discovery
             </p>
             <p>

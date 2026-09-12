@@ -21,7 +21,7 @@ export async function generateMetadata({
   // the page body below does the guarding anyway.
   const user = await currentUser();
   const idea = user ? await getIdea(user.id, id) : null;
-  return { title: idea ? idea.title : "Idea Craft" };
+  return { title: idea ? idea.title : "IdeaCraft" };
 }
 
 export async function PrintIdeaPage({

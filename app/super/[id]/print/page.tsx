@@ -18,7 +18,7 @@ export async function generateMetadata({
   const { id } = await params;
   const user = await currentUser();
   const superIdea = user ? await getSuperIdea(user.id, id) : null;
-  return { title: superIdea ? superIdea.title : "Idea Craft" };
+  return { title: superIdea ? superIdea.title : "IdeaCraft" };
 }
 
 export async function PrintSuperIdeaPage({

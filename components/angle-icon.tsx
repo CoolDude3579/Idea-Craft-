@@ -11,6 +11,16 @@ export function AngleIcon({ categoryId }: { categoryId: string }) {
     strokeLinejoin: "round" as const,
   };
 
+  if (categoryId === "super") {
+    // Stacked layers: several ideas filed as one.
+    return (
+      <svg {...common} aria-hidden="true">
+        <path d="M12 3.5 20 8l-8 4.5L4 8l8-4.5Z" />
+        <path d="M4 12.5 12 17l8-4.5" />
+        <path d="M4 16.5 12 21l8-4.5" />
+      </svg>
+    );
+  }
   if (categoryId === "research") {
     return (
       <svg {...common} aria-hidden="true">
