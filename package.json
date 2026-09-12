@@ -1,0 +1,28 @@
+{
+  "name": "idea-refinery",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node --experimental-strip-types scripts/smoke.mts",
+    "try:openverse": "node --import ./scripts/alias-hook.mjs scripts/try-openverse.ts",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.36.4",
+    "next": "^16.3.5",
+    "postgres": "3.4.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "0.28.1",
+    "typescript": "5.7.2"
+  }
+}
