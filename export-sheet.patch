@@ -1,0 +1,695 @@
+From a8a34bdb8e775306f5d084a159e34e6b344a5247 Mon Sep 17 00:00:00 2001
+From: Dhruv Srivastav <dhruv08.srivastav@gmail.com>
+Date: Sat, 12 Sep 2026 10:42:28 +0000
+Subject: [PATCH 1/2] Auto-pin on click-through, clearer unpin, honest credits
+ section
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Opening a result now keeps it with the idea: the tiny Pin button was the
+only way in, and it reads as debug UI below a wall of snippet text. The
+click-through is the strongest signal of intent, so VisitLink fires a
+fire-and-forget pinVisited() and the new tab opens without waiting. pin()
+de-dupes, so re-opening a link changes nothing. The explicit Pin button
+stays for keeping something without leaving the page, and a hint line says
+what the click does — auto-pinning nobody knows about makes the export
+untrustworthy.
+
+Idea page: Remove -> Unpin, matching the vocabulary of the rest of the UI.
+
+Print sheet: attributionRequired() answers true for UNKNOWN, which is right
+for a badge but wrong for a credit line — there is no correct attribution
+under an unidentified licence. Unknown-licence rows now get their own
+'Licence unstated' section telling the user to confirm with the provider.
+Fixed in the print page; lib/core stays frozen.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01QRrqAosPMP4xAwyzKWyV5b
+---
+ app/actions.ts               | 20 +++++++++++++++
+ app/c/[category]/page.tsx    |  8 ++++++
+ app/globals.css              | 11 +++++++++
+ app/idea/[id]/page.tsx       |  2 +-
+ app/idea/[id]/print/page.tsx | 32 +++++++++++++++++++++---
+ components/result-row.tsx    | 21 +++++++++++++---
+ components/visit-link.tsx    | 47 ++++++++++++++++++++++++++++++++++++
+ 7 files changed, 134 insertions(+), 7 deletions(-)
+ create mode 100644 components/visit-link.tsx
+
+diff --git a/app/actions.ts b/app/actions.ts
+index 4f51130..07dcd7e 100644
+--- a/app/actions.ts
++++ b/app/actions.ts
+@@ -44,6 +44,26 @@ export async function saveIdea(form: FormData): Promise<void> {
+   redirect(`/idea/${ideaId}`);
+ }
+ 
++/**
++ * Auto-pin on click-through, called from VisitLink. Never throws: a background
++ * call has no user-visible failure path, and a bad payload should cost the user
++ * nothing — the explicit Pin button remains the deliberate route.
++ */
++export async function pinVisited(
++  query: string,
++  categoryId: string,
++  result: SourceResult,
++): Promise<void> {
++  if (result?.contract !== CONTRACT) return;
++  if (!findCategory(categoryId)) return;
++  if (query.trim() === "") return;
++
++  const ideaId = await ideaFor(query, categoryId);
++  await pin(ideaId, categoryId, result);
++  revalidatePath(`/idea/${ideaId}`);
++  revalidatePath(`/c/${categoryId}`);
++}
++
+ export async function pinResult(form: FormData): Promise<void> {
+   const query = requireString(form, "q");
+   const categoryId = requireString(form, "category");
+diff --git a/app/c/[category]/page.tsx b/app/c/[category]/page.tsx
+index 1aa2345..b30662b 100644
+--- a/app/c/[category]/page.tsx
++++ b/app/c/[category]/page.tsx
+@@ -122,6 +122,13 @@ export async function CategoryPage({
+                 <button type="submit">Save as an idea</button>
+               </form>
+ 
++              {/* Auto-pinning is invisible unless we say so: a user who does not
++                  know their clicks are kept cannot trust the export. */}
++              <p className="hint">
++                Opening a result keeps it with this idea. Use <b>Pin</b> to keep
++                one without leaving, or <b>Unpin</b> on the idea page to drop it.
++              </p>
++
+               {federated.items.length === 0 ? (
+                 <div className="empty">
+                   No open-licence results for that phrasing. Try fewer, plainer
+@@ -134,6 +141,7 @@ export async function CategoryPage({
+                       key={`${result.sourceId}:${result.sourceKey}`}
+                       result={result}
+                       reasons={reasons}
++                      visit={{ query, categoryId: category.id }}
+                       actions={
+                         <form action={pinResult}>
+                           <input type="hidden" name="q" value={query} />
+diff --git a/app/globals.css b/app/globals.css
+index adde316..04cdeb2 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -555,3 +555,14 @@ h1.page {
+     page-break-before: avoid;
+   }
+ }
++
++.hint {
++  margin: 12px 0 0;
++  color: var(--muted);
++  font-size: 12.5px;
++}
++
++.hint b {
++  color: var(--ink);
++  font-weight: 600;
++}
+diff --git a/app/idea/[id]/page.tsx b/app/idea/[id]/page.tsx
+index 17ea9cf..e60d99d 100644
+--- a/app/idea/[id]/page.tsx
++++ b/app/idea/[id]/page.tsx
+@@ -75,7 +75,7 @@ export async function IdeaPage({ params }: { params: Promise<{ id: string }> })
+                         <input type="hidden" name="ideaId" value={idea.id} />
+                         <input type="hidden" name="sourceId" value={row.result.sourceId} />
+                         <input type="hidden" name="sourceKey" value={row.result.sourceKey} />
+-                        <button type="submit">Remove</button>
++                        <button type="submit">Unpin</button>
+                       </form>
+                     }
+                   />
+diff --git a/app/idea/[id]/print/page.tsx b/app/idea/[id]/print/page.tsx
+index fa1e6e7..04d7092 100644
+--- a/app/idea/[id]/print/page.tsx
++++ b/app/idea/[id]/print/page.tsx
+@@ -60,9 +60,15 @@ export async function PrintIdeaPage({
+   const used = CATEGORIES.filter((category) =>
+     pins.some((p) => p.categoryId === category.id),
+   );
+-  const credited = pins
+-    .map((p) => p.result)
+-    .filter((result) => attributionRequired(result.licence));
++  // attributionRequired() answers true for UNKNOWN, which is right for a
++  // warning badge but wrong for a credit line: you cannot write a correct
++  // attribution under a licence nobody has identified. So the unstated ones
++  // get their own section telling the user what to do instead.
++  const kept = pins.map((p) => p.result);
++  const credited = kept.filter(
++    (result) => result.licence !== "UNKNOWN" && attributionRequired(result.licence),
++  );
++  const unstated = kept.filter((result) => result.licence === "UNKNOWN");
+ 
+   const auto = (Array.isArray(query["auto"]) ? query["auto"][0] : query["auto"]) === "1";
+ 
+@@ -136,6 +142,26 @@ export async function PrintIdeaPage({
+         </section>
+       ) : null}
+ 
++      {unstated.length > 0 ? (
++        <section className="sheetsection credits">
++          <h2>Licence unstated</h2>
++          <p className="sheetfacts">
++            The provider did not state a licence version for these. Confirm the
++            terms with the provider before reusing them — do not assume reuse is
++            permitted.
++          </p>
++          <ul className="sheetrows">
++            {unstated.map((result) => (
++              <li key={`${result.sourceId}:${result.sourceKey}`}>
++                <p className="sheetsnippet">
++                  {result.title} — {adapterLabel(result.sourceId)} ({result.url})
++                </p>
++              </li>
++            ))}
++          </ul>
++        </section>
++      ) : null}
++
+       <p className="sheetfoot">
+         Compiled by Idea Refinery. Every entry is a deep link to its provider;
+         no content is hosted or reproduced here. Licences are reported as the
+diff --git a/components/result-row.tsx b/components/result-row.tsx
+index d025abe..f71fa5a 100644
+--- a/components/result-row.tsx
++++ b/components/result-row.tsx
+@@ -5,6 +5,7 @@ import { adapterLabel } from "@/lib/core/registry";
+ import type { SourceResult } from "@/types/source-result";
+ 
+ import { LicenceBadge, conditions } from "./licence-badge";
++import { VisitLink } from "./visit-link";
+ 
+ function year(publishedAt: string | null): string | null {
+   if (!publishedAt) return null;
+@@ -21,10 +22,14 @@ export function ResultRow({
+   result,
+   reasons,
+   actions,
++  visit,
+ }: {
+   result: SourceResult;
+   reasons?: readonly string[];
+   actions?: ReactNode;
++  /** Set on search results so opening one keeps it. Omitted where the row is
++      already pinned, which is every row on the idea page. */
++  visit?: { query: string; categoryId: string };
+ }) {
+   const published = year(result.publishedAt);
+   const corroborated = alsoFoundIn(result);
+@@ -39,9 +44,19 @@ export function ResultRow({
+       ) : null}
+       <div>
+         <h3>
+-          <a href={result.url} target="_blank" rel="noreferrer noopener">
+-            {result.title}
+-          </a>
++          {visit ? (
++            <VisitLink
++              query={visit.query}
++              categoryId={visit.categoryId}
++              result={result}
++            >
++              {result.title}
++            </VisitLink>
++          ) : (
++            <a href={result.url} target="_blank" rel="noreferrer noopener">
++              {result.title}
++            </a>
++          )}
+         </h3>
+         <div className="meta">
+           <LicenceBadge
+diff --git a/components/visit-link.tsx b/components/visit-link.tsx
+new file mode 100644
+index 0000000..7826a01
+--- /dev/null
++++ b/components/visit-link.tsx
+@@ -0,0 +1,47 @@
++"use client";
++
++import type { ReactNode } from "react";
++
++import { pinVisited } from "@/app/actions";
++import type { SourceResult } from "@/types/source-result";
++
++/**
++ * Opening a result is the strongest signal the user wants to keep it, so the
++ * click-through pins it instead of asking them to find a button afterwards.
++ * The pin is fire-and-forget: the new tab opens at once and never waits on it,
++ * and pin() de-dupes, so re-opening the same link changes nothing.
++ */
++export function VisitLink({
++  query,
++  categoryId,
++  result,
++  children,
++}: {
++  query: string;
++  categoryId: string;
++  result: SourceResult;
++  children: ReactNode;
++}) {
++  const keep = () => {
++    void pinVisited(query, categoryId, result).catch(() => {
++      // A failed auto-pin must never break the click-through: the user still
++      // gets the provider page, and the explicit Pin button is still there.
++    });
++  };
++
++  return (
++    <a
++      href={result.url}
++      target="_blank"
++      rel="noreferrer noopener"
++      onClick={keep}
++      onAuxClick={(event) => {
++        if (event.button === 1) keep(); // middle-click opens a tab too
++      }}
++    >
++      {children}
++    </a>
++  );
++}
++
++export default VisitLink;
+-- 
+2.34.1
+
+
+From 2c865236e8da43f866719e8085971b2180361caa Mon Sep 17 00:00:00 2001
+From: Dhruv Srivastav <dhruv08.srivastav@gmail.com>
+Date: Sat, 12 Sep 2026 10:51:27 +0000
+Subject: [PATCH 2/2] Restructure the export sheet: abstracts, then links, then
+ plates
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The sheet now reads as a report rather than a dump. Each text source leads
+with the provider's abstract and carries its link underneath, so the reader
+meets the argument before the URL. Images collect at the end as plates, each
+with its provider link and provenance below it — one partition of the pins by
+kind, no per-row branching.
+
+The sheet is also a preview now. Auto-print fired the dialog before anyone had
+read anything; the page is what you read, and Save as PDF is the deliberate
+next step, with a line saying the dialog's own Save as PDF is the destination.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01QRrqAosPMP4xAwyzKWyV5b
+---
+ app/globals.css              |  74 +++++++++++++++-
+ app/idea/[id]/page.tsx       |  11 +--
+ app/idea/[id]/print/page.tsx | 165 +++++++++++++++++++++--------------
+ components/print-button.tsx  |  22 ++---
+ 4 files changed, 182 insertions(+), 90 deletions(-)
+
+diff --git a/app/globals.css b/app/globals.css
+index 04cdeb2..e71af29 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -414,7 +414,8 @@ h1.page {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: 16px;
++  flex-wrap: wrap;
++  gap: 12px 16px;
+   margin-bottom: 24px;
+   padding-bottom: 14px;
+   border-bottom: 1px solid var(--line);
+@@ -566,3 +567,74 @@ h1.page {
+   color: var(--ink);
+   font-weight: 600;
+ }
++
++.printhint {
++  flex: 1 1 260px;
++  color: var(--muted);
++  font-size: 12.5px;
++}
++
++.printhint b {
++  color: var(--ink);
++  font-weight: 600;
++}
++
++/* Plates last, so the sheet reads as prose and finishes on the visuals. */
++.plates {
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
++  gap: 20px;
++}
++
++.plate {
++  margin: 0;
++}
++
++.plate img {
++  display: block;
++  width: 100%;
++  height: 180px;
++  object-fit: contain;
++  object-position: left top;
++  background: var(--panel);
++  border: 1px solid var(--line);
++  border-radius: var(--radius);
++}
++
++.plateblank {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  height: 180px;
++  border: 1px dashed var(--line);
++  border-radius: var(--radius);
++  color: var(--muted);
++  font-size: 12.5px;
++}
++
++.plate figcaption {
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++  margin-top: 8px;
++}
++
++@media print {
++  .plates {
++    /* Two up on paper: wide enough to judge the image, narrow enough that a
++       caption and its plate stay on one page. */
++    grid-template-columns: repeat(2, 1fr);
++    gap: 10mm 8mm;
++  }
++
++  .plate {
++    page-break-inside: avoid;
++    break-inside: avoid;
++  }
++
++  .plate img {
++    height: auto;
++    max-height: 60mm;
++    border: 1pt solid #bbbbbb;
++  }
++}
+diff --git a/app/idea/[id]/page.tsx b/app/idea/[id]/page.tsx
+index e60d99d..fe2e040 100644
+--- a/app/idea/[id]/page.tsx
++++ b/app/idea/[id]/page.tsx
+@@ -29,13 +29,10 @@ export async function IdeaPage({ params }: { params: Promise<{ id: string }> })
+       <p className="sub">
+         {pins.length} pinned · {used.length} categor{used.length === 1 ? "y" : "ies"} linked
+         {" · "}
+-        {/* Always offered: a hidden export is one nobody finds. With nothing
+-            pinned the sheet says so rather than opening a blank print dialog,
+-            so the auto-print only fires when there is something to print. */}
+-        <Link
+-          className="exportlink"
+-          href={`/idea/${idea.id}/print${pins.length > 0 ? "?auto=1" : ""}`}
+-        >
++        {/* Always offered: a hidden export is one nobody finds. It opens the
++            sheet as a preview — the print dialog is the user's own next step,
++            never a surprise. */}
++        <Link className="exportlink" href={`/idea/${idea.id}/print`}>
+           Export as PDF
+         </Link>
+       </p>
+diff --git a/app/idea/[id]/print/page.tsx b/app/idea/[id]/print/page.tsx
+index 04d7092..935376b 100644
+--- a/app/idea/[id]/print/page.tsx
++++ b/app/idea/[id]/print/page.tsx
+@@ -2,9 +2,7 @@ import type { Metadata } from "next";
+ import Link from "next/link";
+ import { notFound } from "next/navigation";
+ 
+-import { conditions } from "@/components/licence-badge";
+ import { PrintButton } from "@/components/print-button";
+-import { CATEGORIES, findCategory } from "@/lib/core/categories";
+ import { attributionRequired, licenceLabel } from "@/lib/core/licence";
+ import { adapterLabel } from "@/lib/core/registry";
+ import { getIdea, listPins } from "@/lib/ideas";
+@@ -23,110 +21,147 @@ export async function generateMetadata({
+   return { title: idea ? idea.title : "Idea Refinery" };
+ }
+ 
+-function published(result: SourceResult): string | null {
+-  if (!result.publishedAt) return null;
+-  const date = new Date(result.publishedAt);
++/** Visual sources go in the plate section; everything else reads as text. */
++function isVisual(result: SourceResult): boolean {
++  return result.kind === "image" || result.kind === "artwork";
++}
++
++function year(publishedAt: string | null): string | null {
++  if (!publishedAt) return null;
++  const date = new Date(publishedAt);
+   return Number.isNaN(date.getTime()) ? null : String(date.getUTCFullYear());
+ }
+ 
++/** Provenance for one entry: licence, terms, provider, date, creator. */
++function provenance(result: SourceResult): string {
++  const published = year(result.publishedAt);
++  return [
++    licenceLabel(result.licence),
++    adapterLabel(result.sourceId),
++    published,
++    result.attribution,
++  ]
++    .filter(Boolean)
++    .join(" · ");
++}
++
+ /**
+- * A credit line in the shape the licence actually asks for: creator, title,
+- * licence, link. Only for rows whose licence requires attribution — the point
+- * of tagging licences is that the user can reuse the work without guessing.
++ * A credit line in the shape the licence asks for: creator, title, licence,
++ * link. Only for licences that actually require attribution and that we could
++ * identify — see the unstated section for the rest.
+  */
+ function creditLine(result: SourceResult): string {
+-  const parts = [
++  return [
+     result.attribution ? `${result.attribution},` : null,
+     `"${result.title}"`,
+     `— ${licenceLabel(result.licence)}`,
+     `(${result.url})`,
+-  ];
+-  return parts.filter(Boolean).join(" ");
++  ]
++    .filter(Boolean)
++    .join(" ");
+ }
+ 
+ export async function PrintIdeaPage({
+   params,
+-  searchParams,
+ }: {
+   params: Promise<{ id: string }>;
+-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+ }) {
+   const { id } = await params;
+-  const query = await searchParams;
+   const idea = await getIdea(id);
+   if (!idea) notFound();
+ 
+-  const pins = await listPins(id);
+-  const used = CATEGORIES.filter((category) =>
+-    pins.some((p) => p.categoryId === category.id),
+-  );
++  const kept = (await listPins(id)).map((p) => p.result);
++
++  // One pass, two buckets: the sheet reads as prose first, plates last, which
++  // is also the cheapest thing to render and the easiest to follow.
++  const texts = kept.filter((result) => !isVisual(result));
++  const visuals = kept.filter(isVisual);
++
+   // attributionRequired() answers true for UNKNOWN, which is right for a
+-  // warning badge but wrong for a credit line: you cannot write a correct
+-  // attribution under a licence nobody has identified. So the unstated ones
+-  // get their own section telling the user what to do instead.
+-  const kept = pins.map((p) => p.result);
++  // warning badge but wrong for a credit line: there is no correct attribution
++  // under a licence nobody has identified. Those get their own section.
+   const credited = kept.filter(
+-    (result) => result.licence !== "UNKNOWN" && attributionRequired(result.licence),
++    (r) => r.licence !== "UNKNOWN" && attributionRequired(r.licence),
+   );
+-  const unstated = kept.filter((result) => result.licence === "UNKNOWN");
+-
+-  const auto = (Array.isArray(query["auto"]) ? query["auto"][0] : query["auto"]) === "1";
++  const unstated = kept.filter((r) => r.licence === "UNKNOWN");
+ 
+   return (
+     <main className="sheet">
+       <div className="noprint printbar">
+         <Link href={`/idea/${idea.id}`}>← back to the idea</Link>
+-        <PrintButton auto={auto} />
++        <span className="printhint">
++          Preview below. <b>Save as PDF</b> opens your browser&rsquo;s print
++          dialog — choose <b>Save as PDF</b> as the destination.
++        </span>
++        <PrintButton />
+       </div>
+ 
+       <header className="sheethead">
+         <h1>{idea.title}</h1>
+         <p className="sheetmeta">
+-          Query: {idea.query} · {pins.length} source
+-          {pins.length === 1 ? "" : "s"} kept · exported{" "}
++          Query: {idea.query} · {texts.length} text source
++          {texts.length === 1 ? "" : "s"} · {visuals.length} image
++          {visuals.length === 1 ? "" : "s"} · exported{" "}
+           {new Date().toISOString().slice(0, 10)}
+         </p>
+       </header>
+ 
+-      {pins.length === 0 ? (
++      {kept.length === 0 ? (
+         <p className="sheetempty">
+-          Nothing pinned yet, so this sheet is empty. Pin results in a category
+-          first.
++          Nothing kept yet, so this sheet is empty. Open or pin results in a
++          category first.
+         </p>
+-      ) : (
+-        used.map((category) => {
+-          const rows = pins.filter((p) => p.categoryId === category.id);
+-          return (
+-            <section className="sheetsection" key={category.id}>
+-              <h2>{findCategory(category.id)?.label ?? category.id}</h2>
+-              <ol className="sheetrows">
+-                {rows.map((row) => {
+-                  const year = published(row.result);
+-                  return (
+-                    <li key={row.id}>
+-                      <p className="sheettitle">{row.result.title}</p>
+-                      <p className="sheeturl">{row.result.url}</p>
+-                      <p className="sheetfacts">
+-                        {licenceLabel(row.result.licence)} ·{" "}
+-                        {conditions(row.result.licence)} ·{" "}
+-                        {adapterLabel(row.result.sourceId)}
+-                        {year ? ` · ${year}` : ""}
+-                        {row.result.attribution ? ` · ${row.result.attribution}` : ""}
+-                      </p>
+-                      {row.result.snippet ? (
+-                        <p className="sheetsnippet">{row.result.snippet}</p>
+-                      ) : null}
+-                    </li>
+-                  );
+-                })}
+-              </ol>
+-            </section>
+-          );
+-        })
+-      )}
++      ) : null}
++
++      {texts.length > 0 ? (
++        <section className="sheetsection">
++          <h2>Sources</h2>
++          <ol className="sheetrows">
++            {texts.map((result) => (
++              <li key={`${result.sourceId}:${result.sourceKey}`}>
++                <p className="sheettitle">{result.title}</p>
++                <p className="sheetsnippet">
++                  {result.snippet ?? (
++                    <span className="sheetfacts">
++                      No abstract supplied by the provider.
++                    </span>
++                  )}
++                </p>
++                <p className="sheeturl">{result.url}</p>
++                <p className="sheetfacts">{provenance(result)}</p>
++              </li>
++            ))}
++          </ol>
++        </section>
++      ) : null}
++
++      {visuals.length > 0 ? (
++        <section className="sheetsection">
++          <h2>Images</h2>
++          <div className="plates">
++            {visuals.map((result) => (
++              <figure className="plate" key={`${result.sourceId}:${result.sourceKey}`}>
++                {result.thumbnailUrl ? (
++                  // Hotlinked from the provider, exactly as on screen: the
++                  // sheet holds no copy of the media either.
++                  // eslint-disable-next-line @next/next/no-img-element
++                  <img src={result.thumbnailUrl} alt={result.title} />
++                ) : (
++                  <div className="plateblank">No thumbnail supplied</div>
++                )}
++                <figcaption>
++                  <span className="sheettitle">{result.title}</span>
++                  <span className="sheeturl">{result.url}</span>
++                  <span className="sheetfacts">{provenance(result)}</span>
++                </figcaption>
++              </figure>
++            ))}
++          </div>
++        </section>
++      ) : null}
+ 
+       {credited.length > 0 ? (
+-        <section className="sheetsection credits">
++        <section className="sheetsection">
+           <h2>Credits required</h2>
+           <p className="sheetfacts">
+             These licences ask for attribution. Copy the line as-is when you
+@@ -143,7 +178,7 @@ export async function PrintIdeaPage({
+       ) : null}
+ 
+       {unstated.length > 0 ? (
+-        <section className="sheetsection credits">
++        <section className="sheetsection">
+           <h2>Licence unstated</h2>
+           <p className="sheetfacts">
+             The provider did not state a licence version for these. Confirm the
+diff --git a/components/print-button.tsx b/components/print-button.tsx
+index edf797c..1270ff0 100644
+--- a/components/print-button.tsx
++++ b/components/print-button.tsx
+@@ -1,25 +1,13 @@
+ "use client";
+ 
+-import { useEffect, useRef } from "react";
+-
+ /**
+  * The whole PDF export: the browser's own print-to-PDF. No dependency, no
+- * serverless binary, nothing to bundle — `window.print()` and a print
+- * stylesheet. The saved file takes its name from document.title, which the
+- * print page sets to the idea's title.
++ * serverless binary, nothing to bundle. The sheet itself is the preview, so
++ * this never fires on its own — the user reads first, then saves. The saved
++ * file takes its name from document.title, which the print page sets to the
++ * idea's title.
+  */
+-export function PrintButton({ auto = false }: { auto?: boolean }) {
+-  const fired = useRef(false);
+-
+-  useEffect(() => {
+-    if (!auto || fired.current) return;
+-    fired.current = true;
+-    // One frame after paint, so the sheet is laid out before the dialog
+-    // freezes rendering.
+-    const id = window.requestAnimationFrame(() => window.print());
+-    return () => window.cancelAnimationFrame(id);
+-  }, [auto]);
+-
++export function PrintButton() {
+   return (
+     <button type="button" className="printbtn" onClick={() => window.print()}>
+       Save as PDF
+-- 
+2.34.1
+

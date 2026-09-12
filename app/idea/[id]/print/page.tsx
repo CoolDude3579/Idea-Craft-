@@ -197,10 +197,15 @@ export async function PrintIdeaPage({
         </section>
       ) : null}
 
+      {/* The sheet now embeds provider thumbnails, so the old blanket "nothing
+          is reproduced here" line would be false on any export with images. */}
       <p className="sheetfoot">
-        Compiled by Idea Refinery. Every entry is a deep link to its provider;
-        no content is hosted or reproduced here. Licences are reported as the
-        provider states them — verify before reuse.
+        Compiled by Idea Refinery. Every entry is a deep link to its provider
+        and nothing is stored by Idea Refinery; the plates above are the
+        providers&rsquo; own thumbnails, reproduced here under the licences
+        stated beside them. Licences are reported as the provider states them —
+        verify before reuse, and check the terms before redistributing this
+        sheet.
       </p>
     </main>
   );
