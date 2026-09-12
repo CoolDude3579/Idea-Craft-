@@ -46,6 +46,14 @@ In:
   rerank (keyword overlap, licence freedom, recency) → source interleave.
 - Ideas and pins, persisted to Postgres when `DATABASE_URL` is set and to
   process memory when it is not.
+- Fan-out cache on `searchCache`, keyed by category + subcategory + steered
+  query, 6h TTL, Postgres when `DATABASE_URL` is set and process memory when it
+  is not. A hit makes no provider requests at all: measured 4.1s to 0.75s on
+  the art category. Raw provider results are cached, not the ranked page, so a
+  relevance change takes effect immediately rather than waiting out the TTL.
+  An expired entry is still served, labelled stale in the source bar, when the
+  live fan-out comes back empty — a dead venue network shows the last good
+  answer instead of nothing. Outages are never cached.
 - JSON API at `/api/search`.
 - PDF export of an idea's pinned sources at `/idea/<id>/print`, via the
   browser's own print engine — no dependency and nothing for the serverless

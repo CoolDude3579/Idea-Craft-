@@ -114,6 +114,9 @@ export async function CategoryPage({
                 rawCount={federated.rawCount}
                 dedupedCount={federated.dedupedCount}
                 ms={federated.ms}
+                cached={federated.cached}
+                stale={federated.stale}
+                fetchedAt={federated.fetchedAt}
               />
 
               <form action={saveIdea} style={{ marginTop: 16 }}>

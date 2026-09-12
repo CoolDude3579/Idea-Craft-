@@ -40,6 +40,9 @@ export async function GET(request: Request): Promise<NextResponse> {
       fetched: federated.rawCount,
       afterDedupe: federated.dedupedCount,
       ms: federated.ms,
+      cached: federated.cached,
+      stale: federated.stale,
+      fetchedAt: federated.fetchedAt,
     },
     results: federated.items.map((item) => ({
       score: Number(item.score.toFixed(4)),
