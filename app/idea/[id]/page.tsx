@@ -29,13 +29,10 @@ export async function IdeaPage({ params }: { params: Promise<{ id: string }> }) 
       <p className="sub">
         {pins.length} pinned · {used.length} categor{used.length === 1 ? "y" : "ies"} linked
         {" · "}
-        {/* Always offered: a hidden export is one nobody finds. With nothing
-            pinned the sheet says so rather than opening a blank print dialog,
-            so the auto-print only fires when there is something to print. */}
-        <Link
-          className="exportlink"
-          href={`/idea/${idea.id}/print${pins.length > 0 ? "?auto=1" : ""}`}
-        >
+        {/* Always offered: a hidden export is one nobody finds. It opens the
+            sheet as a preview — the print dialog is the user's own next step,
+            never a surprise. */}
+        <Link className="exportlink" href={`/idea/${idea.id}/print`}>
           Export as PDF
         </Link>
       </p>

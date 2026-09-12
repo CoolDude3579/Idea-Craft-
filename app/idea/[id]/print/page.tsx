@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { conditions } from "@/components/licence-badge";
 import { PrintButton } from "@/components/print-button";
-import { CATEGORIES, findCategory } from "@/lib/core/categories";
 import { attributionRequired, licenceLabel } from "@/lib/core/licence";
 import { adapterLabel } from "@/lib/core/registry";
 import { getIdea, listPins } from "@/lib/ideas";
@@ -23,110 +21,147 @@ export async function generateMetadata({
   return { title: idea ? idea.title : "Idea Refinery" };
 }
 
-function published(result: SourceResult): string | null {
-  if (!result.publishedAt) return null;
-  const date = new Date(result.publishedAt);
+/** Visual sources go in the plate section; everything else reads as text. */
+function isVisual(result: SourceResult): boolean {
+  return result.kind === "image" || result.kind === "artwork";
+}
+
+function year(publishedAt: string | null): string | null {
+  if (!publishedAt) return null;
+  const date = new Date(publishedAt);
   return Number.isNaN(date.getTime()) ? null : String(date.getUTCFullYear());
 }
 
+/** Provenance for one entry: licence, terms, provider, date, creator. */
+function provenance(result: SourceResult): string {
+  const published = year(result.publishedAt);
+  return [
+    licenceLabel(result.licence),
+    adapterLabel(result.sourceId),
+    published,
+    result.attribution,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /**
- * A credit line in the shape the licence actually asks for: creator, title,
- * licence, link. Only for rows whose licence requires attribution — the point
- * of tagging licences is that the user can reuse the work without guessing.
+ * A credit line in the shape the licence asks for: creator, title, licence,
+ * link. Only for licences that actually require attribution and that we could
+ * identify — see the unstated section for the rest.
  */
 function creditLine(result: SourceResult): string {
-  const parts = [
+  return [
     result.attribution ? `${result.attribution},` : null,
     `"${result.title}"`,
     `— ${licenceLabel(result.licence)}`,
     `(${result.url})`,
-  ];
-  return parts.filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export async function PrintIdeaPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const query = await searchParams;
   const idea = await getIdea(id);
   if (!idea) notFound();
 
-  const pins = await listPins(id);
-  const used = CATEGORIES.filter((category) =>
-    pins.some((p) => p.categoryId === category.id),
-  );
-  // attributionRequired() answers true for UNKNOWN, which is right for a
-  // warning badge but wrong for a credit line: you cannot write a correct
-  // attribution under a licence nobody has identified. So the unstated ones
-  // get their own section telling the user what to do instead.
-  const kept = pins.map((p) => p.result);
-  const credited = kept.filter(
-    (result) => result.licence !== "UNKNOWN" && attributionRequired(result.licence),
-  );
-  const unstated = kept.filter((result) => result.licence === "UNKNOWN");
+  const kept = (await listPins(id)).map((p) => p.result);
 
-  const auto = (Array.isArray(query["auto"]) ? query["auto"][0] : query["auto"]) === "1";
+  // One pass, two buckets: the sheet reads as prose first, plates last, which
+  // is also the cheapest thing to render and the easiest to follow.
+  const texts = kept.filter((result) => !isVisual(result));
+  const visuals = kept.filter(isVisual);
+
+  // attributionRequired() answers true for UNKNOWN, which is right for a
+  // warning badge but wrong for a credit line: there is no correct attribution
+  // under a licence nobody has identified. Those get their own section.
+  const credited = kept.filter(
+    (r) => r.licence !== "UNKNOWN" && attributionRequired(r.licence),
+  );
+  const unstated = kept.filter((r) => r.licence === "UNKNOWN");
 
   return (
     <main className="sheet">
       <div className="noprint printbar">
         <Link href={`/idea/${idea.id}`}>← back to the idea</Link>
-        <PrintButton auto={auto} />
+        <span className="printhint">
+          Preview below. <b>Save as PDF</b> opens your browser&rsquo;s print
+          dialog — choose <b>Save as PDF</b> as the destination.
+        </span>
+        <PrintButton />
       </div>
 
       <header className="sheethead">
         <h1>{idea.title}</h1>
         <p className="sheetmeta">
-          Query: {idea.query} · {pins.length} source
-          {pins.length === 1 ? "" : "s"} kept · exported{" "}
+          Query: {idea.query} · {texts.length} text source
+          {texts.length === 1 ? "" : "s"} · {visuals.length} image
+          {visuals.length === 1 ? "" : "s"} · exported{" "}
           {new Date().toISOString().slice(0, 10)}
         </p>
       </header>
 
-      {pins.length === 0 ? (
+      {kept.length === 0 ? (
         <p className="sheetempty">
-          Nothing pinned yet, so this sheet is empty. Pin results in a category
-          first.
+          Nothing kept yet, so this sheet is empty. Open or pin results in a
+          category first.
         </p>
-      ) : (
-        used.map((category) => {
-          const rows = pins.filter((p) => p.categoryId === category.id);
-          return (
-            <section className="sheetsection" key={category.id}>
-              <h2>{findCategory(category.id)?.label ?? category.id}</h2>
-              <ol className="sheetrows">
-                {rows.map((row) => {
-                  const year = published(row.result);
-                  return (
-                    <li key={row.id}>
-                      <p className="sheettitle">{row.result.title}</p>
-                      <p className="sheeturl">{row.result.url}</p>
-                      <p className="sheetfacts">
-                        {licenceLabel(row.result.licence)} ·{" "}
-                        {conditions(row.result.licence)} ·{" "}
-                        {adapterLabel(row.result.sourceId)}
-                        {year ? ` · ${year}` : ""}
-                        {row.result.attribution ? ` · ${row.result.attribution}` : ""}
-                      </p>
-                      {row.result.snippet ? (
-                        <p className="sheetsnippet">{row.result.snippet}</p>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-          );
-        })
-      )}
+      ) : null}
+
+      {texts.length > 0 ? (
+        <section className="sheetsection">
+          <h2>Sources</h2>
+          <ol className="sheetrows">
+            {texts.map((result) => (
+              <li key={`${result.sourceId}:${result.sourceKey}`}>
+                <p className="sheettitle">{result.title}</p>
+                <p className="sheetsnippet">
+                  {result.snippet ?? (
+                    <span className="sheetfacts">
+                      No abstract supplied by the provider.
+                    </span>
+                  )}
+                </p>
+                <p className="sheeturl">{result.url}</p>
+                <p className="sheetfacts">{provenance(result)}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {visuals.length > 0 ? (
+        <section className="sheetsection">
+          <h2>Images</h2>
+          <div className="plates">
+            {visuals.map((result) => (
+              <figure className="plate" key={`${result.sourceId}:${result.sourceKey}`}>
+                {result.thumbnailUrl ? (
+                  // Hotlinked from the provider, exactly as on screen: the
+                  // sheet holds no copy of the media either.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={result.thumbnailUrl} alt={result.title} />
+                ) : (
+                  <div className="plateblank">No thumbnail supplied</div>
+                )}
+                <figcaption>
+                  <span className="sheettitle">{result.title}</span>
+                  <span className="sheeturl">{result.url}</span>
+                  <span className="sheetfacts">{provenance(result)}</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {credited.length > 0 ? (
-        <section className="sheetsection credits">
+        <section className="sheetsection">
           <h2>Credits required</h2>
           <p className="sheetfacts">
             These licences ask for attribution. Copy the line as-is when you
@@ -143,7 +178,7 @@ export async function PrintIdeaPage({
       ) : null}
 
       {unstated.length > 0 ? (
-        <section className="sheetsection credits">
+        <section className="sheetsection">
           <h2>Licence unstated</h2>
           <p className="sheetfacts">
             The provider did not state a licence version for these. Confirm the
