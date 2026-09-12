@@ -149,9 +149,12 @@ export async function PrintIdeaPage({
                 ) : (
                   <div className="plateblank">No thumbnail supplied</div>
                 )}
+                {/* Link first, hard against the plate: for an image the URL is
+                    what the reader acts on, so it sits where the eye lands
+                    after the picture. Title and provenance follow. */}
                 <figcaption>
-                  <span className="sheettitle">{result.title}</span>
                   <span className="sheeturl">{result.url}</span>
+                  <span className="sheettitle">{result.title}</span>
                   <span className="sheetfacts">{provenance(result)}</span>
                 </figcaption>
               </figure>
