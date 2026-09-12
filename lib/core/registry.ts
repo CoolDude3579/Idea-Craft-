@@ -7,6 +7,8 @@ import { openalexAdapter } from "@/lib/adapters/openalex";
 import { adapter as openverseAdapter } from "@/lib/adapters/openverse";
 import type { Adapter } from "@/types/source-result";
 
+import { sourceLabel } from "./source-labels";
+
 export const ADAPTERS: readonly Adapter[] = [
   openalexAdapter,
   europepmcAdapter,
@@ -26,7 +28,7 @@ export function adaptersFor(sourceIds: readonly string[]): Adapter[] {
 }
 
 export function adapterLabel(sourceId: string): string {
-  return BY_ID.get(sourceId)?.label ?? sourceId;
+  return BY_ID.get(sourceId)?.label ?? sourceLabel(sourceId);
 }
 
 export function adapterHomepage(sourceId: string): string | null {
