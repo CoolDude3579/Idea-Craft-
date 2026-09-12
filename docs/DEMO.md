@@ -47,6 +47,10 @@ In:
 - Ideas and pins, persisted to Postgres when `DATABASE_URL` is set and to
   process memory when it is not.
 - JSON API at `/api/search`.
+- PDF export of an idea's pinned sources at `/idea/<id>/print`, via the
+  browser's own print engine — no dependency and nothing for the serverless
+  runtime to bundle. Includes a credits block for the licences that require
+  attribution.
 - `npm run smoke` — the licence mapper over every verified provider spelling,
   then contract-v1 assertions over the live fan-out for all three categories.
 - `DEMO_FIXTURES=1` — offline placeholder records so a dead venue network
@@ -58,7 +62,8 @@ Out, by decision:
 - auth, accounts, permissions, policy APIs, news, collaboration
 - hosting or caching provider content — we deep-link only
 - generated or summarised text: `snippet` is provider-supplied or null
-- file-format conversion (PDF export of the user's own work)
+- server-side document generation: the PDF export is the browser's print
+  engine, so there is no headless Chromium in the deployment
 - tests beyond the smoke script
 
 ## Running it

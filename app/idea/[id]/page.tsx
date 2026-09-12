@@ -28,6 +28,14 @@ export async function IdeaPage({ params }: { params: Promise<{ id: string }> }) 
       <h1 className="page">{idea.title}</h1>
       <p className="sub">
         {pins.length} pinned · {used.length} categor{used.length === 1 ? "y" : "ies"} linked
+        {pins.length > 0 ? (
+          <>
+            {" · "}
+            <Link className="exportlink" href={`/idea/${idea.id}/print?auto=1`}>
+              Export as PDF
+            </Link>
+          </>
+        ) : null}
       </p>
 
       <ul className="chips">
