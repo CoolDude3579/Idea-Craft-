@@ -12,7 +12,11 @@ export function tokenise(text: string): string[] {
     .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .split(/\s+/)
     .map((t) => t.replace(/^-+|-+$/g, ""))
-    .filter((t) => t.length > 2 && !STOP.has(t));
+    // Tokens of three or more, plus anything carrying a digit. The old
+    // length > 2 floor silently dropped the "1" from "formula 1", so the
+    // search ran on "formula" alone and returned infant formula and chemical
+    // formulae. Model numbers and years are the whole query surprisingly often.
+    .filter((t) => (t.length > 2 || /\d/.test(t)) && !STOP.has(t));
 }
 
 /**

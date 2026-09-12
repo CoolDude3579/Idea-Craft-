@@ -22,8 +22,41 @@ export function collapseWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Only the inline formatting tags providers actually send. A blanket
+ * /<[^>]*>/ would eat the middle of a title like "p < 0.05 in men > 40",
+ * which is a worse failure than leaving a stray tag in.
+ */
+const INLINE_TAG = /<\/?(?:b|i|em|strong|sub|sup|u|br|span)\s*\/?>/gi;
+
 export function stripTags(text: string): string {
-  return collapseWhitespace(text.replace(/<[^>]*>/g, " "));
+  return collapseWhitespace(text.replace(INLINE_TAG, " "));
+}
+
+/**
+ * Europe PMC sends markup HTML-escaped, so a title arrives as
+ * "&lt;b&gt;Protective effects...&lt;/b&gt;" and stripTags finds no tags to
+ * strip — it rendered literally on the page and in the export. Entities are
+ * decoded first, then the tags they reveal are stripped.
+ *
+ * &amp; is decoded last so "&amp;lt;" ends up as the text "&lt;" rather than
+ * being unescaped twice into a tag that was never there.
+ */
+export function decodeEntities(text: string): string {
+  return text
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;|&#0*39;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#0*8217;|&rsquo;/gi, "\u2019")
+    .replace(/&amp;/gi, "&");
+}
+
+/** Provider prose as the user should read it: entities decoded, formatting
+    tags dropped, whitespace collapsed. */
+export function cleanText(text: string): string {
+  return stripTags(decodeEntities(text));
 }
 
 export function isoDate(value: string | number | null | undefined): string | null {
@@ -51,11 +84,11 @@ const SNIPPET_MAX = 400;
 
 /** The only constructor for contract-v1 results. Adapters go through it. */
 export function makeResult(draft: DraftResult): SourceResult | null {
-  const title = collapseWhitespace(draft.title);
+  const title = cleanText(draft.title);
   const url = canonicalUrl(draft.url);
   if (!title || !url.startsWith("https://")) return null;
 
-  const snippet = draft.snippet ? stripTags(draft.snippet) : null;
+  const snippet = draft.snippet ? cleanText(draft.snippet) : null;
 
   return Object.freeze({
     contract: CONTRACT,
@@ -67,7 +100,7 @@ export function makeResult(draft: DraftResult): SourceResult | null {
     kind: draft.kind,
     licence: draft.licence,
     licenceUrl: draft.licenceUrl ?? null,
-    attribution: draft.attribution ? collapseWhitespace(draft.attribution) : null,
+    attribution: draft.attribution ? cleanText(draft.attribution) : null,
     thumbnailUrl: draft.thumbnailUrl ?? null,
     publishedAt: draft.publishedAt ?? null,
     raw: Object.freeze(draft.raw),
