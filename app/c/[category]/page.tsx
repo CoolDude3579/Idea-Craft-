@@ -5,6 +5,7 @@ import { pinResult, saveIdea } from "@/app/actions";
 import { PhrasePanel } from "@/components/phrase-panel";
 import { ResultRow } from "@/components/result-row";
 import { SearchForm } from "@/components/search-form";
+import { requireUser } from "@/lib/guard";
 import { SourceBar } from "@/components/source-bar";
 import { findCategory, planFor } from "@/lib/core/categories";
 import { federate } from "@/lib/core/federate";
@@ -24,6 +25,7 @@ export async function CategoryPage({
   params: Promise<{ category: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireUser();
   const { category: categoryId } = await params;
   const category = findCategory(categoryId);
   if (!category) notFound();

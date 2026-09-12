@@ -2,7 +2,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 
 /** Openverse asks for a descriptive agent; the rest accept anything stable. */
 export const USER_AGENT =
-  "IdeaRefinery/0.1 (prototype; https://github.com/idea-refinery)";
+  "IdeaCraft/0.1 (prototype; https://github.com/CoolDude3579/Idea-Craft-)";
 
 const lastCall = new Map<string, number>();
 

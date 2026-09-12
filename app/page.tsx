@@ -1,9 +1,12 @@
 import Link from "next/link";
 
+import { createSuperIdeaAction } from "@/app/actions";
 import { SearchForm } from "@/components/search-form";
 import { CATEGORIES } from "@/lib/core/categories";
 import { keywords } from "@/lib/core/keywords";
+import { requireUser } from "@/lib/guard";
 import { listIdeas } from "@/lib/ideas";
+import { listSuperIdeas } from "@/lib/supers";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +15,15 @@ export async function Home({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const user = await requireUser("/");
   const params = await searchParams;
   const raw = params["q"];
   const query = (Array.isArray(raw) ? raw[0] : raw) ?? "";
   const terms = keywords(query, 6);
-  const ideas = await listIdeas();
+  const [ideas, supers] = await Promise.all([
+    listIdeas(user.id),
+    listSuperIdeas(user.id),
+  ]);
 
   return (
     <main>
@@ -66,12 +73,48 @@ export async function Home({
             {ideas.map((idea) => (
               <Link key={idea.id} className="card" href={`/idea/${idea.id}`}>
                 <h3>{idea.title}</h3>
-                <p>{idea.categoryIds.join(" · ") || "no categories yet"}</p>
+                <p>
+                  {idea.categoryIds.join(" · ") || "no categories yet"}
+                  {idea.ownerId === user.id ? "" : " · shared with you"}
+                </p>
               </Link>
             ))}
           </div>
         </section>
       ) : null}
+
+      <section className="section">
+        <h2>Super ideas</h2>
+        <p className="sheetfacts">
+          A project too big for one idea&rsquo;s categories: group up to three
+          ideas and export them as one pack.
+        </p>
+        {supers.length > 0 ? (
+          <div className="cards">
+            {supers.map((superIdea) => (
+              <Link
+                key={superIdea.id}
+                className="card"
+                href={`/super/${superIdea.id}`}
+              >
+                <h3>{superIdea.title}</h3>
+                <p>
+                  {superIdea.ownerId === user.id ? "yours" : "shared with you"}
+                </p>
+              </Link>
+            ))}
+          </div>
+        ) : null}
+        <form action={createSuperIdeaAction} className="draftbox">
+          <input
+            type="text"
+            name="title"
+            placeholder="Name a super idea — e.g. campus health campaign"
+            required
+          />
+          <button type="submit">Create super idea</button>
+        </form>
+      </section>
     </main>
   );
 }

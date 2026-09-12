@@ -2,26 +2,42 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { signOutAction } from "@/app/auth-actions";
+import { currentUser } from "@/lib/auth";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Idea Refinery",
+  title: "Idea Craft",
   description:
     "Federated open-licence search. One query, many open sources, outbound links only.",
 };
 
-export function RootLayout({ children }: { children: ReactNode }) {
+export async function RootLayout({ children }: { children: ReactNode }) {
+  // Layouts render on every page including the auth pages, so this must
+  // tolerate there being nobody signed in.
+  const user = await currentUser();
+
   return (
     <html lang="en">
       <body>
         <div className="shell">
           <header className="masthead">
             <Link href="/" className="brand">
-              Idea <span>Refinery</span>
+              Idea <span>Craft</span>
             </Link>
-            <p className="tagline">
-              Open-licence sources, deep-linked. We never host content.
-            </p>
+            {user ? (
+              <div className="whoami">
+                <span className="tagline">{user.name}</span>
+                <form action={signOutAction}>
+                  <button type="submit">Sign out</button>
+                </form>
+              </div>
+            ) : (
+              <p className="tagline">
+                Open-licence sources, deep-linked. We never host content.
+              </p>
+            )}
           </header>
           {children}
           <footer className="footer">

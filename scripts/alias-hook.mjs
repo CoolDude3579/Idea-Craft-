@@ -61,7 +61,7 @@ export async function load(url, context, nextLoad) {
 }
 
 // Self-register when used via `node --import ./scripts/alias-hook.mjs`.
-if (!process.env.IDEA_REFINERY_TS_HOOK) {
-  process.env.IDEA_REFINERY_TS_HOOK = "1";
+if (!process.env.IDEA_CRAFT_TS_HOOK) {
+  process.env.IDEA_CRAFT_TS_HOOK = "1";
   register(import.meta.url);
 }
