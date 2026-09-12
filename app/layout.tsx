@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Serif } from "next/font/google";
+import { Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -11,12 +11,17 @@ import "./globals.css";
 /**
  * Display face for the lede and page titles, self-hosted by next/font at build
  * time — no runtime request to Google and no new dependency, since next/font
- * ships with Next. Body type stays system sans; the serif is editorial
- * flavour, not the reading face.
+ * ships with Next.
+ *
+ * Playfair Display rather than Instrument Serif: the reference design's
+ * headline has high stroke contrast and real weight behind it, which
+ * Instrument Serif (one light 400) cannot reach. 600 and 700 are the only
+ * weights loaded — body type stays system sans, since the serif is the
+ * headline voice, not the reading face.
  */
-const display = Instrument_Serif({
+const display = Playfair_Display({
   subsets: ["latin"],
-  weight: "400",
+  weight: ["600", "700"],
   variable: "--font-display",
   display: "swap",
   fallback: ["Iowan Old Style", "Palatino", "Georgia", "serif"],
@@ -39,7 +44,24 @@ export async function RootLayout({ children }: { children: ReactNode }) {
         <div className="shell">
           <header className="masthead">
             <Link href="/" className="brand">
-              Idea <span>Craft</span>
+              <span className="brandmark" aria-hidden="true">
+                {/* The one decorative use of the accent, and the only icon. */}
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none">
+                  <path
+                    d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M10 20h4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              Idea <span className="brandword">Craft</span>
             </Link>
             {user ? (
               <div className="whoami">

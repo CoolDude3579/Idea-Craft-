@@ -6,6 +6,7 @@ import { PhrasePanel } from "@/components/phrase-panel";
 import { ResultRow } from "@/components/result-row";
 import { SearchForm } from "@/components/search-form";
 import { requireUser } from "@/lib/guard";
+import { findIdeaByQuery, pinnedKeys } from "@/lib/ideas";
 import { SourceBar } from "@/components/source-bar";
 import { findCategory, planFor } from "@/lib/core/categories";
 import { federate } from "@/lib/core/federate";
@@ -25,7 +26,7 @@ export async function CategoryPage({
   params: Promise<{ category: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { category: categoryId } = await params;
   const category = findCategory(categoryId);
   if (!category) notFound();
@@ -36,13 +37,17 @@ export async function CategoryPage({
 
   const plan = query ? planFor(category.id, subcategoryId, query) : null;
 
-  // Fan-out and phrases are independent: neither waits on the other.
-  const [federated, phrases] = await Promise.all([
+  // Fan-out, phrases and the already-kept set are independent: none waits on
+  // another.
+  const [federated, phrases, existing] = await Promise.all([
     plan ? federate(plan) : Promise.resolve(null),
     plan?.phrases && !fixturesEnabled()
       ? phrasesFor(query)
       : Promise.resolve([] as PhraseSet[]),
+    query ? findIdeaByQuery(user.id, query) : Promise.resolve(null),
   ]);
+
+  const kept = existing ? await pinnedKeys(existing.id) : new Set<string>();
 
   const href = (sub: string | null) =>
     `/c/${category.id}?q=${encodeURIComponent(query)}${sub ? `&sub=${sub}` : ""}`;
@@ -134,6 +139,8 @@ export async function CategoryPage({
                 one without leaving, or <b>Unpin</b> on the idea page to drop it.
               </p>
 
+              {/* Rows already kept on this user's idea for this query say so
+                  rather than offering a second pin. */}
               {federated.items.length === 0 ? (
                 <div className="empty">
                   No open-licence results for that phrasing. Try fewer, plainer
@@ -147,6 +154,7 @@ export async function CategoryPage({
                       result={result}
                       reasons={reasons}
                       visit={{ query, categoryId: category.id }}
+                      pinned={kept.has(`${result.sourceId}:${result.sourceKey}`)}
                       actions={
                         <form action={pinResult}>
                           <input type="hidden" name="q" value={query} />

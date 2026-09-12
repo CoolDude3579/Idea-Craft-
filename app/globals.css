@@ -61,8 +61,15 @@ body {
 .sheethead h1,
 .authpane h1 {
   font-family: var(--font-display), "Iowan Old Style", Palatino, Georgia, serif;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* Page titles carry the same face a step lighter: at 24px the 700 reads
+   heavier than the lede does at 52px. */
+.page,
+.authpane h1 {
+  font-weight: 600;
 }
 
 :focus-visible {
@@ -115,7 +122,8 @@ a {
   flex: 0 0 auto;
 }
 
-.brandword {
+.brandword,
+.brand > span:not(.brandmark) {
   color: var(--accent);
 }
 
@@ -127,8 +135,8 @@ a {
 .lede {
   /* Fluid so the two-line headline holds its shape from 360px to desktop. */
   font-size: clamp(32px, 5.4vw, 52px);
-  line-height: 1.08;
-  letter-spacing: -0.025em;
+  line-height: 1.06;
+  letter-spacing: -0.015em;
   margin: 8px 0 12px;
   max-width: 22ch;
 }
@@ -282,9 +290,10 @@ button:disabled {
 
 .result {
   display: grid;
-  /* Must track .result img: a narrower column than the image overlaps the
-     title, which is what a 112px thumbnail in an 84px column did. */
-  grid-template-columns: 112px 1fr;
+  /* auto, not a fixed 112px: the column then measures the image itself, so a
+     thumbnail that fails to load and removes itself collapses the column
+     instead of leaving a hole — no parent state required. */
+  grid-template-columns: auto 1fr;
   gap: 14px;
   padding: 14px;
   background: var(--panel);
@@ -994,4 +1003,9 @@ input::placeholder {
   .skel {
     animation: none;
   }
+}
+
+.pinned {
+  color: var(--muted);
+  font-size: 13px;
 }

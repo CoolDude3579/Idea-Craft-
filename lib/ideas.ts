@@ -198,6 +198,31 @@ export async function createIdea(
   };
 }
 
+/**
+ * The idea this user already has for this exact query, if any — the read-only
+ * half of what ideaFor() does when pinning. A search page needs it to know
+ * which rows are already kept, so the row can say "Pinned" instead of
+ * offering to pin something twice.
+ */
+export async function findIdeaByQuery(
+  userId: string,
+  query: string,
+): Promise<Idea | null> {
+  const wanted = query.trim().toLowerCase();
+  if (wanted === "") return null;
+  return (
+    (await listIdeas(userId)).find(
+      (idea) => idea.query.trim().toLowerCase() === wanted,
+    ) ?? null
+  );
+}
+
+/** Keys of the results already kept on an idea, as `sourceId:sourceKey`. */
+export async function pinnedKeys(ideaId: string): Promise<Set<string>> {
+  const pins = await listPins(ideaId);
+  return new Set(pins.map((p) => `${p.result.sourceId}:${p.result.sourceKey}`));
+}
+
 export async function addCategory(
   userId: string,
   ideaId: string,

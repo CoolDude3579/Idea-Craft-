@@ -5,6 +5,7 @@ import { adapterLabel } from "@/lib/core/registry";
 import type { SourceResult } from "@/types/source-result";
 
 import { LicenceBadge, conditions } from "./licence-badge";
+import { ResultThumb } from "./result-thumb";
 import { VisitLink } from "./visit-link";
 
 function year(publishedAt: string | null): string | null {
@@ -23,6 +24,7 @@ export function ResultRow({
   reasons,
   actions,
   visit,
+  pinned,
 }: {
   result: SourceResult;
   reasons?: readonly string[];
@@ -30,6 +32,8 @@ export function ResultRow({
   /** Set on search results so opening one keeps it. Omitted where the row is
       already pinned, which is every row on the idea page. */
   visit?: { query: string; categoryId: string };
+  /** True when this result is already kept on the matching idea. */
+  pinned?: boolean;
 }) {
   const published = year(result.publishedAt);
   const corroborated = alsoFoundIn(result);
@@ -38,9 +42,7 @@ export function ResultRow({
   return (
     <li className={result.thumbnailUrl ? "result" : "result no-thumb"}>
       {result.thumbnailUrl ? (
-        // Provider thumbnail, hotlinked: we hold no copy of the media.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={result.thumbnailUrl} alt="" loading="lazy" />
+        <ResultThumb src={result.thumbnailUrl} />
       ) : null}
       <div>
         <h3>
@@ -80,7 +82,15 @@ export function ResultRow({
           {isFixture ? <span className="pill down">fixture</span> : null}
         </div>
         {result.snippet ? <p className="snippet">{result.snippet}</p> : null}
-        {actions ? <div className="rowactions">{actions}</div> : null}
+        {pinned ? (
+          <div className="rowactions">
+            {/* Quiet, not a button: there is nothing to do, and offering to pin
+                something twice invites a pointless click. */}
+            <span className="pinned">Pinned</span>
+          </div>
+        ) : actions ? (
+          <div className="rowactions">{actions}</div>
+        ) : null}
       </div>
     </li>
   );
