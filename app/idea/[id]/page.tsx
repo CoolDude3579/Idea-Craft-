@@ -75,7 +75,7 @@ export async function IdeaPage({ params }: { params: Promise<{ id: string }> }) 
                         <input type="hidden" name="ideaId" value={idea.id} />
                         <input type="hidden" name="sourceId" value={row.result.sourceId} />
                         <input type="hidden" name="sourceKey" value={row.result.sourceKey} />
-                        <button type="submit">Remove</button>
+                        <button type="submit">Unpin</button>
                       </form>
                     }
                   />

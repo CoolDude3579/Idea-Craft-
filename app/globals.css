@@ -555,3 +555,14 @@ h1.page {
     page-break-before: avoid;
   }
 }
+
+.hint {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.hint b {
+  color: var(--ink);
+  font-weight: 600;
+}

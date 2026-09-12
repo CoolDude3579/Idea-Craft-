@@ -122,6 +122,13 @@ export async function CategoryPage({
                 <button type="submit">Save as an idea</button>
               </form>
 
+              {/* Auto-pinning is invisible unless we say so: a user who does not
+                  know their clicks are kept cannot trust the export. */}
+              <p className="hint">
+                Opening a result keeps it with this idea. Use <b>Pin</b> to keep
+                one without leaving, or <b>Unpin</b> on the idea page to drop it.
+              </p>
+
               {federated.items.length === 0 ? (
                 <div className="empty">
                   No open-licence results for that phrasing. Try fewer, plainer
@@ -134,6 +141,7 @@ export async function CategoryPage({
                       key={`${result.sourceId}:${result.sourceKey}`}
                       result={result}
                       reasons={reasons}
+                      visit={{ query, categoryId: category.id }}
                       actions={
                         <form action={pinResult}>
                           <input type="hidden" name="q" value={query} />

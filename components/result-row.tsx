@@ -5,6 +5,7 @@ import { adapterLabel } from "@/lib/core/registry";
 import type { SourceResult } from "@/types/source-result";
 
 import { LicenceBadge, conditions } from "./licence-badge";
+import { VisitLink } from "./visit-link";
 
 function year(publishedAt: string | null): string | null {
   if (!publishedAt) return null;
@@ -21,10 +22,14 @@ export function ResultRow({
   result,
   reasons,
   actions,
+  visit,
 }: {
   result: SourceResult;
   reasons?: readonly string[];
   actions?: ReactNode;
+  /** Set on search results so opening one keeps it. Omitted where the row is
+      already pinned, which is every row on the idea page. */
+  visit?: { query: string; categoryId: string };
 }) {
   const published = year(result.publishedAt);
   const corroborated = alsoFoundIn(result);
@@ -39,9 +44,19 @@ export function ResultRow({
       ) : null}
       <div>
         <h3>
-          <a href={result.url} target="_blank" rel="noreferrer noopener">
-            {result.title}
-          </a>
+          {visit ? (
+            <VisitLink
+              query={visit.query}
+              categoryId={visit.categoryId}
+              result={result}
+            >
+              {result.title}
+            </VisitLink>
+          ) : (
+            <a href={result.url} target="_blank" rel="noreferrer noopener">
+              {result.title}
+            </a>
+          )}
         </h3>
         <div className="meta">
           <LicenceBadge

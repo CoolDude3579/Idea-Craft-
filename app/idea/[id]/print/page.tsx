@@ -60,9 +60,15 @@ export async function PrintIdeaPage({
   const used = CATEGORIES.filter((category) =>
     pins.some((p) => p.categoryId === category.id),
   );
-  const credited = pins
-    .map((p) => p.result)
-    .filter((result) => attributionRequired(result.licence));
+  // attributionRequired() answers true for UNKNOWN, which is right for a
+  // warning badge but wrong for a credit line: you cannot write a correct
+  // attribution under a licence nobody has identified. So the unstated ones
+  // get their own section telling the user what to do instead.
+  const kept = pins.map((p) => p.result);
+  const credited = kept.filter(
+    (result) => result.licence !== "UNKNOWN" && attributionRequired(result.licence),
+  );
+  const unstated = kept.filter((result) => result.licence === "UNKNOWN");
 
   const auto = (Array.isArray(query["auto"]) ? query["auto"][0] : query["auto"]) === "1";
 
@@ -130,6 +136,26 @@ export async function PrintIdeaPage({
             {credited.map((result) => (
               <li key={`${result.sourceId}:${result.sourceKey}`}>
                 <p className="sheetsnippet">{creditLine(result)}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {unstated.length > 0 ? (
+        <section className="sheetsection credits">
+          <h2>Licence unstated</h2>
+          <p className="sheetfacts">
+            The provider did not state a licence version for these. Confirm the
+            terms with the provider before reusing them — do not assume reuse is
+            permitted.
+          </p>
+          <ul className="sheetrows">
+            {unstated.map((result) => (
+              <li key={`${result.sourceId}:${result.sourceKey}`}>
+                <p className="sheetsnippet">
+                  {result.title} — {adapterLabel(result.sourceId)} ({result.url})
+                </p>
               </li>
             ))}
           </ul>

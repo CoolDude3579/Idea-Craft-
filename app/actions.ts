@@ -44,6 +44,26 @@ export async function saveIdea(form: FormData): Promise<void> {
   redirect(`/idea/${ideaId}`);
 }
 
+/**
+ * Auto-pin on click-through, called from VisitLink. Never throws: a background
+ * call has no user-visible failure path, and a bad payload should cost the user
+ * nothing — the explicit Pin button remains the deliberate route.
+ */
+export async function pinVisited(
+  query: string,
+  categoryId: string,
+  result: SourceResult,
+): Promise<void> {
+  if (result?.contract !== CONTRACT) return;
+  if (!findCategory(categoryId)) return;
+  if (query.trim() === "") return;
+
+  const ideaId = await ideaFor(query, categoryId);
+  await pin(ideaId, categoryId, result);
+  revalidatePath(`/idea/${ideaId}`);
+  revalidatePath(`/c/${categoryId}`);
+}
+
 export async function pinResult(form: FormData): Promise<void> {
   const query = requireString(form, "q");
   const categoryId = requireString(form, "category");
