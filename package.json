@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "smoke": "node --experimental-strip-types scripts/smoke.mts",
     "try:openverse": "node --import ./scripts/alias-hook.mjs scripts/try-openverse.ts",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "test:v2": "node --env-file=.env --import ./scripts/alias-hook.mjs scripts/test-v2.ts",
+    "db:clean": "node --env-file=.env scripts/reset-db.mjs --truncate"
   },
   "dependencies": {
     "drizzle-orm": "0.36.4",

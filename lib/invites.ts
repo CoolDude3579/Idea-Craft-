@@ -3,6 +3,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 
 import { addMember, getIdea, setDraft } from "./ideas";
+import { newToken } from "./password";
 import { addSuperMember, getSuperIdea, listIdeasIn } from "./supers";
 
 function requireDb() {
@@ -14,14 +15,6 @@ function requireDb() {
 export type InviteKind = "idea" | "super";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function newToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
 
 /**
  * Single-use and expiring. A share link that never dies and admits anyone who
@@ -41,7 +34,7 @@ export async function createInvite(
       : (await getSuperIdea(userId, targetId)) !== null;
   if (!allowed) return null;
 
-  const token = newToken();
+  const token = newToken(24);
   await db.insert(schema.invites).values({
     token,
     kind,

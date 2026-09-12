@@ -18,13 +18,27 @@ export function resolve(specifier, context, nextResolve) {
     if (hit) return { url: pathToFileURL(hit).href, shortCircuit: true };
   }
 
-  // Relative TS imports written with an explicit .ts extension.
-  if (/^\.{1,2}\//.test(specifier) && /\.tsx?$/.test(specifier)) {
+  // Relative imports of project TS, with or without the extension. Node's
+  // ESM resolver requires a full specifier, but project source is written the
+  // TypeScript way ("./schema"), so those are resolved here — db/index.ts
+  // imports its schema that way and no script had reached it before.
+  if (/^\.{1,2}\//.test(specifier)) {
     const parent = context.parentURL ? dirname(fileURLToPath(context.parentURL)) : ROOT;
     const target = resolvePath(parent, specifier);
-    if (existsSync(target)) {
-      return { url: pathToFileURL(target).href, shortCircuit: true };
-    }
+
+    const candidates = /\.tsx?$/.test(specifier)
+      ? [target]
+      : /\.[a-zA-Z0-9]+$/.test(specifier)
+        ? [] // .js/.mjs/.json and friends: leave them to Node
+        : [
+            `${target}.ts`,
+            `${target}.tsx`,
+            join(target, "index.ts"),
+            join(target, "index.tsx"),
+          ];
+
+    const hit = candidates.find((candidate) => existsSync(candidate));
+    if (hit) return { url: pathToFileURL(hit).href, shortCircuit: true };
   }
 
   return nextResolve(specifier, context);

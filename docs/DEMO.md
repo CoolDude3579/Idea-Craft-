@@ -44,8 +44,10 @@ In:
   and one deferred placeholder category.
 - Normalise → dedupe (DOI, canonical URL, title fingerprint) → licence tag →
   rerank (keyword overlap, licence freedom, recency) → source interleave.
-- Ideas and pins, persisted to Postgres when `DATABASE_URL` is set and to
-  process memory when it is not.
+- Ideas and pins, persisted to Postgres. The V1 process-memory fallback is
+  gone: with accounts it is not a degraded mode but a wrong one, since each
+  instance would keep its own users and an invite would land on an empty
+  board. `DATABASE_URL` is required and says so when missing.
 - Fan-out cache on `searchCache`, keyed by category + subcategory + steered
   query, 6h TTL, Postgres when `DATABASE_URL` is set and process memory when it
   is not. A hit makes no provider requests at all: measured 4.1s to 0.75s on
@@ -55,6 +57,25 @@ In:
   live fan-out comes back empty — a dead venue network shows the last good
   answer instead of nothing. Outages are never cached.
 - JSON API at `/api/search`.
+- Accounts (V2): signup, login, sessions. PBKDF2-HMAC-SHA512 at 210k iterations
+  through Web Crypto, opaque session tokens in Postgres, no new dependencies.
+  Capped at two accounts in code, not in the schema.
+- Sharing (V2): single-use invite links, 7-day expiry, for an idea or a super
+  idea. Access is "owner, or member, or member of the parent super idea", so
+  sharing a super idea shares the ideas inside it without copying a row.
+- Collaboration (V2) is shared storage with split input: `idea_drafts` holds
+  each member's own prompt, seeded from the idea's query when they accept, and
+  everyone's pins land in the one shared idea. Nothing is synchronised, so
+  nothing can conflict. `pins.authorId` records who kept what, and the export
+  prints it on shared boards.
+- Super ideas (V2): up to three ideas grouped, with an aggregate export.
+- `npm run test:v2` — 61 assertions over the multi-user model against a real
+  database: hashing, the account cap, account enumeration, private ideas,
+  invite single-use, separate query boxes, pin authorship, a stranger's writes
+  being ignored, and super-idea access inheritance.
+- `npm run db:clean` empties the app tables (test:v2 leaves two accounts, which
+  fills the cap); `scripts/reset-db.mjs --yes` drops them, for when
+  `drizzle-kit push` mis-diffs a text primary key.
 - PDF export of an idea's pinned sources at `/idea/<id>/print`, via the
   browser's own print engine — no dependency and nothing for the serverless
   runtime to bundle. Includes a credits block for the licences that require
@@ -67,7 +88,7 @@ In:
 
 Out, by decision:
 
-- auth, accounts, permissions, policy APIs, news, collaboration
+- policy APIs, news, real-time collaboration (shared cursors, live sync)
 - hosting or caching provider content — we deep-link only
 - generated or summarised text: `snippet` is provider-supplied or null
 - server-side document generation: the PDF export is the browser's print
