@@ -79,7 +79,7 @@ export async function federate(plan: Plan): Promise<Federated> {
 
   return {
     plan,
-    items: rerank(unique, plan.query, LIMIT),
+    items: rerank(unique, plan.query, LIMIT, plan.terms),
     sources: settled.map((entry) => entry.status),
     rawCount: all.length,
     dedupedCount: unique.length,

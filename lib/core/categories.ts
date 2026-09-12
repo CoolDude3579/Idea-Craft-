@@ -127,7 +127,12 @@ export function findSubcategory(
 export interface Plan {
   readonly categoryId: string;
   readonly subcategoryId: string | null;
+  /** What goes to the provider: the user's keywords plus steering modifiers. */
   readonly query: string;
+  /** The user's own keywords, for scoring. Modifiers steer the request but
+      must not decide relevance — a poster is not less relevant for failing to
+      contain the word "poster". */
+  readonly terms: readonly string[];
   readonly sourceIds: readonly string[];
   readonly phrases: boolean;
 }
@@ -159,6 +164,7 @@ export function planFor(
     categoryId: category.id,
     subcategoryId: subcategory?.id ?? null,
     query: [base, ...modifiers].join(" ").trim(),
+    terms,
     sourceIds,
     phrases: subcategory
       ? subcategory.phrases === true
