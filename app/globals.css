@@ -784,3 +784,34 @@ h1.page {
   color: var(--muted);
   font-size: 12.5px;
 }
+
+.invitecopy {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.invitecopy code {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.invitecopy button {
+  flex: 0 0 auto;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 8px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
