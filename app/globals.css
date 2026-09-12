@@ -24,11 +24,18 @@
   --warn: #9a5b12;
   --radius: 10px;
   --radius-lg: 12px;
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
+/* Three palette states. The bare :root above is light, so:
+   - "auto" sets no attribute and the media query decides;
+   - an explicit choice wins in BOTH directions, which is why the media query
+     excludes [data-theme="light"] rather than simply being overridden — a
+     light choice must survive a dark OS.
+   The dark tokens are written twice on purpose: a media-conditional rule and
+   an unconditional one cannot be merged into one selector list. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #171310;
     --panel: #1f1a15;
     --sunken: #262019;
@@ -40,7 +47,23 @@
     --accent-ink: #1a120b;
     --ok: #6cc48d;
     --warn: #e0a250;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+    --bg: #171310;
+    --panel: #1f1a15;
+    --sunken: #262019;
+    --ink: #f4efe4;
+    --muted: #a39a8a;
+    --placeholder: #8d8474;
+    --line: #332a22;
+    --accent: #ff7a33;
+    --accent-ink: #1a120b;
+    --ok: #6cc48d;
+    --warn: #e0a250;
+    color-scheme: dark;
 }
 
 * {
@@ -627,7 +650,14 @@ button:not(.printbtn):not([type="submit"]),
   /* The light palette regardless of the viewer's theme, and warm paper rather
      than white: on cream stock, #fff and #000 both look like a rendering
      fault, so the sheet prints the app's own --panel and --ink. */
-  :root {
+  /* Every selector here must match or beat :root:not([data-theme="light"]),
+     which is (0,2,0) — a bare :root is (0,1,0) and loses, so "Auto" on a dark
+     OS printed a dark PDF. :root:not([data-theme]) covers exactly that case at
+     equal specificity, and this block comes later in the file, so it wins. */
+  :root,
+  :root:not([data-theme]),
+  :root[data-theme="dark"],
+  :root[data-theme="light"] {
     --bg: #fcf9f2;
     --panel: #fcf9f2;
     --sunken: #f2ece1;
@@ -784,7 +814,9 @@ button:not(.printbtn):not([type="submit"]),
 .whoami {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
 }
 
 .authpane {
@@ -1008,4 +1040,52 @@ input::placeholder {
 .pinned {
   color: var(--muted);
   font-size: 13px;
+}
+
+/* Palette toggle. Segmented, because three labelled states are clearer than a
+   single button whose next state you have to guess. */
+.themetoggle fieldset {
+  display: inline-flex;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  border-radius: 999px;
+  gap: 2px;
+}
+
+.themetoggle button {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.themetoggle button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.visuallyhidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media print {
+  .themetoggle {
+    display: none !important;
+  }
 }

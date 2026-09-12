@@ -4,7 +4,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { signOutAction } from "@/app/auth-actions";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { currentUser } from "@/lib/auth";
+import { currentTheme } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -36,10 +38,16 @@ export const metadata: Metadata = {
 export async function RootLayout({ children }: { children: ReactNode }) {
   // Layouts render on every page including the auth pages, so this must
   // tolerate there being nobody signed in.
-  const user = await currentUser();
+  const [user, theme] = await Promise.all([currentUser(), currentTheme()]);
 
   return (
-    <html lang="en" className={display.variable}>
+    <html
+      lang="en"
+      className={display.variable}
+      // "auto" sets nothing, leaving prefers-color-scheme in charge. Rendered
+      // on the server, so the first paint is already the chosen palette.
+      data-theme={theme === "auto" ? undefined : theme}
+    >
       <body>
         <div className="shell">
           <header className="masthead">
@@ -63,18 +71,24 @@ export async function RootLayout({ children }: { children: ReactNode }) {
               </span>
               Idea <span className="brandword">Craft</span>
             </Link>
-            {user ? (
-              <div className="whoami">
-                <span className="tagline">{user.name}</span>
-                <form action={signOutAction}>
-                  <button type="submit">Sign out</button>
-                </form>
-              </div>
-            ) : (
-              <p className="tagline">
-                Open-licence sources, deep-linked. We never host content.
-              </p>
-            )}
+            <div className="whoami">
+              {user ? (
+                <>
+                  <span className="tagline">{user.name}</span>
+                  <ThemeToggle current={theme} />
+                  <form action={signOutAction}>
+                    <button type="submit">Sign out</button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <p className="tagline">
+                    Open-licence sources, deep-linked. We never host content.
+                  </p>
+                  <ThemeToggle current={theme} />
+                </>
+              )}
+            </div>
           </header>
           {children}
           <footer className="footer">
